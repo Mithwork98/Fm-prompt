@@ -1,182 +1,196 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>De-Identified H&P Prompt Builder (Local)</title>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin: 14px; max-width:900px;}
-    h1 { margin-bottom: 6px; }
-    label { display:block; margin-top:10px; font-weight:600; }
-    textarea, input[type=text], select { width:100%; padding:8px; font-size:14px; box-sizing:border-box; }
-    .row { display:flex; gap:8px; margin-top:8px; }
-    button { padding:8px 12px; font-size:14px; cursor:pointer; }
-    small { color:#555; }
-    .hint { background:#f6f6f8; padding:10px; border-left:4px solid #ccc; margin-top:8px; }
-    pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:400px; overflow:auto; }
-    .half { width:48%; display:inline-block; vertical-align:top; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>De-Identified H&P Prompt Builder</title>
+<style>
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin:16px; max-width:900px; }
+h1 { margin-bottom:8px; }
+label { display:block; margin-top:12px; font-weight:600; }
+input, textarea, select { width:100%; padding:8px; font-size:14px; box-sizing:border-box; margin-top:4px; }
+.row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.half { flex:1 1 48%; }
+button { padding:8px 12px; font-size:14px; cursor:pointer; margin-top:10px; }
+pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:400px; overflow:auto; margin-top:8px; }
+.hint { background:#f6f6f8; padding:10px; border-left:4px solid #ccc; margin-top:8px; }
+small { color:#555; display:block; margin-top:6px; }
+</style>
 </head>
 <body>
-  <h1>H&P Prompt Builder — De-identified (Free)</h1>
-  <div class="hint">
-    <div style="color:crimson; font-weight:600;">Do NOT enter patient identifiers (name, MRN, DOB, address) here.</div>
-    This page runs locally in your browser and does not send data anywhere.
+
+<h1>H&P Prompt Builder — De-identified</h1>
+<div class="hint">
+<strong style="color:crimson;">Do NOT enter patient identifiers.</strong> This tool runs locally and does not send data anywhere.
+</div>
+
+<div class="row">
+  <div class="half">
+    <label>Age</label>
+    <input id="age" placeholder="e.g., 60">
   </div>
-
-  <div class="row">
-    <div class="half">
-      <label>Age</label>
-      <input id="age" placeholder="e.g., 45">
-    </div>
-    <div class="half">
-      <label>Sex</label>
-      <select id="sex">
-        <option value="">Select</option>
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-  </div>
-
-  <label>Chief complaint (in patient's words)</label>
-  <input id="cc" placeholder="e.g., 'I have burning when I urinate'">
-
-  <label>HPI bullets / short notes (onset, duration, severity, associated symptoms)</label>
-  <textarea id="hpi" rows="4" placeholder="e.g., 4 days of dysuria, frequency, no fever, worse at night"></textarea>
-
-  <label>Past Medical History (type)</label>
-  <textarea id="pmh" rows="3" placeholder="e.g., HTN, HLD, T2DM"></textarea>
-
-  <label>Past Surgical History</label>
-  <textarea id="psh" rows="2" placeholder="e.g., appendectomy 2010"></textarea>
-
-  <label>Medications (one per line, include dose/frequency and diagnosis)</label>
-  <textarea id="meds" rows="3" placeholder="e.g., Lisinopril 10 mg daily — Hypertension"></textarea>
-
-  <label>Allergies</label>
-  <input id="allergies" placeholder="e.g., Penicillin">
-
-  <label>Vitals (brief)</label>
-  <input id="vitals" placeholder="e.g., BP 142/88, HR 82, Temp 98.6, BMI 34">
-
-  <label>Focused Exam / abnormal findings (brief)</label>
-  <textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
-
-  <label>Additional Questions / Clarifications</label>
-  <textarea id="additional" rows="3" placeholder="Enter answers to previous GPT questions for a more thorough H&P"></textarea>
-
-  <label>Options</label>
-  <div class="row">
-    <select id="detail">
-      <option value="concise">Concise, no bloat (default)</option>
-      <option value="detailed">More detailed (include more exam and counseling)</option>
+  <div class="half">
+    <label>Sex</label>
+    <select id="sex">
+      <option value="">Select</option>
+      <option>Male</option>
+      <option>Female</option>
+      <option>Other</option>
     </select>
-    <label style="margin:0; align-self:center;"><input id="icd" type="checkbox" checked> Include ICD-10 + one-line justification</label>
-    <label style="margin:0; align-self:center;"><input id="patientFriendly" type="checkbox" checked> Patient-friendly language</label>
   </div>
+</div>
 
-  <div style="margin-top:12px;">
-    <button onclick="buildPrompt()">Build Prompt</button>
-    <button onclick="copyPrompt()">Copy Prompt</button>
-    <button onclick="openChat()">Open ChatGPT</button>
-    <button onclick="clearAll()">Clear</button>
+<button onclick="fillSuggestions()">Fill Suggestions for PMH, Meds & Preventive Care</button>
+
+<label>Chief Complaint</label>
+<input id="cc" placeholder="Patient's own words">
+
+<label>HPI (bullets, onset/duration/severity/associated symptoms)</label>
+<textarea id="hpi" rows="4" placeholder="e.g., 4 days of dysuria, frequency, no fever"></textarea>
+
+<label>Past Medical History</label>
+<textarea id="pmh" rows="3" placeholder="Auto-suggested based on age/sex"></textarea>
+
+<label>Past Surgical History</label>
+<textarea id="psh" rows="2" placeholder="e.g., appendectomy 2010"></textarea>
+
+<label>Medications (one per line, include dose/frequency and linked diagnosis)</label>
+<textarea id="meds" rows="3" placeholder="Auto-suggested based on PMH"></textarea>
+
+<label>Allergies</label>
+<input id="allergies" placeholder="e.g., Penicillin">
+
+<label>Vitals (brief)</label>
+<input id="vitals" placeholder="e.g., BP 142/88, HR 82, Temp 98.6, BMI 34">
+
+<label>Focused Exam / Abnormal Findings</label>
+<textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
+
+<label>Additional Questions / Clarifications</label>
+<textarea id="additional" rows="3" placeholder="Enter answers to previous GPT questions"></textarea>
+
+<label>Options</label>
+<div class="row">
+  <select id="detail" class="half">
+    <option value="concise">Concise</option>
+    <option value="detailed">Detailed</option>
+  </select>
+  <div class="half">
+    <label><input type="checkbox" id="icd" checked> Include ICD-10</label>
+    <label><input type="checkbox" id="patientFriendly" checked> Patient-friendly language</label>
   </div>
+</div>
 
-  <label style="margin-top:12px">Preview: Prompt to paste into ChatGPT</label>
-  <pre id="promptPreview"></pre>
+<div>
+  <button onclick="buildPrompt()">Build Prompt</button>
+  <button onclick="copyPrompt()">Copy Prompt</button>
+  <button onclick="openChat()">Open ChatGPT</button>
+  <button onclick="clearAll()">Clear</button>
+</div>
 
-  <div style="margin-top:10px;">
-    <small><strong>Usage:</strong> 1) Fill fields. 2) Click "Build Prompt". 3) Paste into chat.openai.com. 4) If GPT asks questions, enter answers in "Additional Questions" and click "Build Prompt" again for updated H&P. The note will include medications linked to diagnosis, lifestyle prescriptions, specialist-level plan, and a list of care gaps based on age/sex.</small>
-  </div>
+<label>Preview: Prompt to paste into ChatGPT</label>
+<pre id="promptPreview"></pre>
 
-  <script>
-    function buildPrompt() {
-      const age = document.getElementById('age').value.trim() || "Not reported";
-      const sex = document.getElementById('sex').value || "Not reported";
-      const cc = document.getElementById('cc').value.trim();
-      const hpi = document.getElementById('hpi').value.trim();
-      const pmh = document.getElementById('pmh').value.trim();
-      const psh = document.getElementById('psh').value.trim();
-      const meds = document.getElementById('meds').value.trim();
-      const allergies = document.getElementById('allergies').value.trim();
-      const vitals = document.getElementById('vitals').value.trim() || "Not reported";
-      const exam = document.getElementById('exam').value.trim() || "Not reported";
-      const additional = document.getElementById('additional').value.trim();
-      const detail = document.getElementById('detail').value;
-      const includeICD = document.getElementById('icd').checked;
-      const patientFriendly = document.getElementById('patientFriendly').checked;
+<small>Fill fields → Build Prompt → Copy → Paste into ChatGPT. Use Additional Questions to update H&P.</small>
 
-      let optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
-INCLUDE_ICD: ${includeICD ? 'Yes' : 'No'}.
-PATIENT_FRIENDLY_LANGUAGE: ${patientFriendly ? 'Yes' : 'No'}.
+<script>
+const getField = id => document.getElementById(id).value.trim() || "Not reported";
+
+// Auto-fill PMH, medications, and preventive care
+function fillSuggestions() {
+  const age = parseInt(document.getElementById('age').value);
+  const sex = document.getElementById('sex').value;
+
+  if (!age || !sex) { alert('Enter age and sex first'); return; }
+
+  // PMH suggestions
+  let pmhSuggestions = [];
+  if (age >= 50) pmhSuggestions.push("Hypertension", "Hyperlipidemia", "Type 2 Diabetes Mellitus");
+  if (age >= 60) pmhSuggestions.push("Osteoarthritis");
+  document.getElementById('pmh').value = pmhSuggestions.join(', ');
+
+  // Medications suggestions
+  let medSuggestions = [];
+  if (pmhSuggestions.includes("Hypertension")) medSuggestions.push("Lisinopril 10-40 mg daily — Hypertension");
+  if (pmhSuggestions.includes("Type 2 Diabetes Mellitus")) medSuggestions.push("Metformin 500-1000 mg BID — Type 2 Diabetes Mellitus");
+  if (pmhSuggestions.includes("Hyperlipidemia")) medSuggestions.push("Statin (Simvastatin 20 mg nightly) — Hyperlipidemia");
+  if (pmhSuggestions.includes("Osteoarthritis")) medSuggestions.push("Acetaminophen 500-1000 mg q6-8h PRN — Osteoarthritis");
+  document.getElementById('meds').value = medSuggestions.join('\n');
+
+  // Preventive care preview
+  let preventive = [];
+  if (sex === "Female" && age >= 40) preventive.push("Mammogram every 1–2 years");
+  if (age >= 45) preventive.push("Colonoscopy every 10 years");
+  if (age >= 65 && sex === "Female") preventive.push("Bone density scan for osteoporosis");
+  if (age >= 50) preventive.push("Vaccinations: Influenza, Tdap, COVID-19, Pneumococcal as indicated");
+  
+  alert("Suggested preventive care:\n" + preventive.join('\n'));
+}
+
+function buildPrompt() {
+  const inputs = ['age','sex','cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional']
+    .reduce((acc, id) => { acc[id] = getField(id); return acc; }, {});
+  const detail = document.getElementById('detail').value;
+  const icd = document.getElementById('icd').checked ? 'Yes' : 'No';
+  const patientFriendly = document.getElementById('patientFriendly').checked ? 'Yes' : 'No';
+
+  const optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
+INCLUDE_ICD: ${icd}.
+PATIENT_FRIENDLY_LANGUAGE: ${patientFriendly}.
 Do not include identifiers.`;
 
-      let userInput =
-`PATIENT INPUT:
-AGE: ${age}
-SEX: ${sex}
-CHIEF COMPLAINT: ${cc}
-HPI: ${hpi}
-PAST MEDICAL HISTORY: ${pmh}
-PAST SURGICAL HISTORY: ${psh}
-MEDICATIONS: ${meds}
-ALLERGIES: ${allergies}
-VITALS: ${vitals}
-EXAM: ${exam}
-ADDITIONAL: ${additional}
+  const userInput = `
+PATIENT INPUT:
+AGE: ${inputs.age}
+SEX: ${inputs.sex}
+CHIEF COMPLAINT: ${inputs.cc}
+HPI: ${inputs.hpi}
+PAST MEDICAL HISTORY: ${inputs.pmh}
+PAST SURGICAL HISTORY: ${inputs.psh}
+MEDICATIONS: ${inputs.meds}
+ALLERGIES: ${inputs.allergies}
+VITALS: ${inputs.vitals}
+EXAM: ${inputs.exam}
+ADDITIONAL: ${inputs.additional}
 ${optionsText}
 END PATIENT INPUT.
 `;
 
-      const systemPrompt = `
+  const systemPrompt = `
 You are a clinical documentation assistant for a Family Medicine physician. 
-Generate an Epic-ready H&P note with the following headers:
-CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS (with dose/frequency and linked diagnosis), ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
+Generate an Epic-ready H&P with headers: CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS (linked to diagnosis), ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
 
 Constraints:
-- Avoid note bloat; include only relevant ROS and exam findings.
+- Avoid note bloat; include only relevant ROS/exam findings.
 - Use neutral, patient-friendly language.
-- Include short, evidence-based plan per problem.
-- Include lifestyle medicine/lifestyle prescription recommendations for each problem.
-- Map medications to their respective diagnoses.
-- Include a list of primary care preventive and chronic care care gaps based on age and sex.
-- Include other questions to ask the patient under the plan.
-- High-level specialist-style assessment & plan (directive style, no "consider starting").
-- Incorporate information in "Additional Questions" to update the note thoroughly.
-- Provide EPIC_PROBLEMS if requested: "Diagnosis — ICD-10 — one-line justification".
-- Output ONLY the H&P and EPIC_PROBLEMS blocks.
+- Include short evidence-based plan per problem.
+- Include lifestyle recommendations.
+- Map medications to diagnoses.
+- Include primary care preventive and chronic care gaps based on age/sex.
+- Include questions to ask patient.
+- High-level specialist-style directive plan.
+- Include EPIC_PROBLEMS if requested.
+- Output ONLY H&P and EPIC_PROBLEMS.
 `;
 
-      document.getElementById('promptPreview').textContent = systemPrompt + "\n\n" + userInput + `
-OUTPUT FORMAT:
-1) Generate H&P using exact headers.
-2) Include medications linked to respective diagnoses.
-3) Include lifestyle medicine prescriptions for each problem.
-4) Include list of care gaps based on age and sex.
-5) Include list of other questions to ask the patient under the plan.
-6) Provide high-level specialist-style assessment & plan.
-7) Include EPIC_PROBLEMS if requested.
-8) Output ONLY the H&P and EPIC_PROBLEMS.
-`;
-    }
+  document.getElementById('promptPreview').textContent = systemPrompt + "\n\n" + userInput;
+}
 
-    function copyPrompt() {
-      const text = document.getElementById('promptPreview').textContent;
-      if (!text) { alert('Build prompt first'); return; }
-      navigator.clipboard.writeText(text).then(() => alert('Prompt copied! Paste into chat.openai.com'));
-    }
+function copyPrompt() {
+  const text = document.getElementById('promptPreview').textContent;
+  if (!text) { alert('Build prompt first'); return; }
+  navigator.clipboard.writeText(text).then(() => alert('Prompt copied!'));
+}
 
-    function openChat() {
-      window.open('https://chat.openai.com/chat', '_blank');
-    }
+function openChat() { window.open('https://chat.openai.com/chat', '_blank'); }
 
-    function clearAll() {
-      if (!confirm('Clear all fields?')) return;
-      ['age','sex','cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional'].forEach(id => document.getElementById(id).value='');
-      document.getElementById('promptPreview').textContent = '';
-    }
-  </script>
+function clearAll() {
+  if (!confirm('Clear all fields?')) return;
+  ['age','sex','cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional']
+    .forEach(id => document.getElementById(id).value='');
+  document.getElementById('promptPreview').textContent = '';
+}
+</script>
+
 </body>
 </html>
