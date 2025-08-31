@@ -44,7 +44,7 @@
     </div>
 
     <div style="flex:1">
-      <label>Medications (dictate or type, one per line, include dose/frequency)</label>
+      <label>Medications (dictate or type, one per line, include dose/frequency and diagnosis)</label>
       <textarea id="meds" rows="3" placeholder="e.g., Lisinopril 10 mg daily — Hypertension"></textarea>
       <div class="row">
         <button class="smallbtn" onclick="startDict('meds')">🎤 Dictate meds</button>
@@ -61,6 +61,9 @@
 
   <label>Focused Exam / abnormal findings (brief)</label>
   <textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
+
+  <label>Additional Questions / Clarifications</label>
+  <textarea id="additional" rows="3" placeholder="Enter answers to questions GPT asked in the previous note to make H&P more thorough"></textarea>
 
   <label>Options</label>
   <div class="row">
@@ -83,7 +86,7 @@
   <pre id="promptPreview"></pre>
 
   <div style="margin-top:10px;">
-    <small><strong>Usage:</strong> Click "Build Prompt", then "Copy Prompt", open chat.openai.com, paste and send. Review output & edit before adding to Epic.</small>
+    <small><strong>Usage:</strong> 1) Fill all fields. 2) Click "Build Prompt". 3) Paste into chat.openai.com. 4) If GPT asks questions, enter answers in "Additional Questions" and click "Build Prompt" again for an updated note.</small>
   </div>
 
   <script>
@@ -108,7 +111,7 @@
     }
 
     function startDict(fieldId) {
-      if (!recognizer) { alert('Speech recognition not supported in this browser. Use Chrome or type manually.'); return; }
+      if (!recognizer) { alert('Speech recognition not supported. Use Chrome or type manually.'); return; }
       currentField = fieldId;
       recognizer.start();
     }
@@ -131,6 +134,7 @@ Constraints:
 - Provide high-level assessment & plan per problem, including monitoring, follow-up, and patient counseling.
 - Provide EPIC_PROBLEMS if requested: "Diagnosis — ICD-10 — one-line justification".
 - Output ONLY the H&P and EPIC_PROBLEMS blocks.
+- Incorporate any responses in "Additional Questions / Clarifications" to update the note thoroughly.
 `;
 
     function buildPrompt() {
@@ -141,12 +145,13 @@ Constraints:
       const allergies = document.getElementById('allergies').value.trim();
       const vitals = document.getElementById('vitals').value.trim() || "Not reported";
       const exam = document.getElementById('exam').value.trim() || "Not reported";
+      const additional = document.getElementById('additional').value.trim();
       const detail = document.getElementById('detail').value;
       const includeICD = document.getElementById('icd').checked;
       const patientFriendly = document.getElementById('patientFriendly').checked;
 
-      if (!cc && !hpi && !pmh) {
-        if (!confirm('No CC/HPI/PMH entered. Continue?')) return;
+      if (!cc && !hpi && !pmh && !additional) {
+        if (!confirm('No CC/HPI/PMH/Additional entered. Continue?')) return;
       }
 
       let optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
@@ -163,6 +168,7 @@ MEDICATIONS: ${meds}
 ALLERGIES: ${allergies}
 VITALS: ${vitals}
 EXAM: ${exam}
+ADDITIONAL: ${additional}
 ${optionsText}
 END PATIENT INPUT.
 `;
@@ -173,27 +179,11 @@ OUTPUT FORMAT:
 2) Include medications linked to respective diagnoses.
 3) Provide high-level, specialist-level assessment & plan for each problem.
 4) Include EPIC_PROBLEMS if requested.
-5) Output ONLY the H&P and EPIC_PROBLEMS.
+5) Incorporate answers from "Additional Questions" to produce a more thorough note.
+6) Output ONLY the H&P and EPIC_PROBLEMS.
 `;
 
       document.getElementById('promptPreview').textContent = finalPrompt;
     }
 
     function copyPrompt() {
-      const text = document.getElementById('promptPreview').textContent;
-      if (!text) { alert('Build prompt first'); return; }
-      navigator.clipboard.writeText(text).then(() => alert('Prompt copied! Paste into chat.openai.com'));
-    }
-
-    function openChat() {
-      window.open('https://chat.openai.com/chat', '_blank');
-    }
-
-    function clearAll() {
-      if (!confirm('Clear all fields?')) return;
-      ['cc','hpi','pmh','meds','allergies','vitals','exam'].forEach(id => document.getElementById(id).value='');
-      document.getElementById('promptPreview').textContent = '';
-    }
-  </script>
-</body>
-</html>
