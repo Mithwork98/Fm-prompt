@@ -1,36 +1,124 @@
-<script>
-  // Speech recognition setup
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-  let recognizer = null;
-  let currentField = null;
-  if (SpeechRecognition) {
-    recognizer = new SpeechRecognition();
-    recognizer.lang = 'en-US';
-    recognizer.interimResults = false;
-    recognizer.maxAlternatives = 1;
-    recognizer.onresult = (evt) => {
-      const t = evt.results[0][0].transcript;
-      if (currentField) {
-        const el = document.getElementById(currentField);
-        el.value = (el.value ? el.value + ' ' : '') + t;
-      }
-    };
-    recognizer.onerror = (e) => { console.log('SpeechError', e); alert('Speech recognition error: ' + (e.error || e.message)); };
-    recognizer.onend = () => { currentField = null; };
-  }
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>De-Identified H&P Prompt Builder (Local)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin: 14px; max-width:900px;}
+    h1 { margin-bottom: 6px; }
+    label { display:block; margin-top:10px; font-weight:600; }
+    textarea, input[type=text] { width:100%; padding:8px; font-size:14px; box-sizing:border-box; }
+    .row { display:flex; gap:8px; margin-top:8px; }
+    button { padding:8px 12px; font-size:14px; cursor:pointer; }
+    small { color:#555; }
+    .hint { background:#f6f6f8; padding:10px; border-left:4px solid #ccc; margin-top:8px; }
+    .two { display:flex; gap:8px; }
+    .smallbtn { padding:6px 8px; font-size:13px; }
+    .alert { color:crimson; font-weight:600; }
+    pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:400px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>H&P Prompt Builder — De-identified (Free)</h1>
+  <div class="hint">
+    <div class="alert">Do NOT enter patient identifiers (name, MRN, DOB, address) here.</div>
+    This page runs locally in your browser and does not send data anywhere. Use dictation buttons to capture PMH/meds.
+  </div>
 
-  function startDict(fieldId) {
-    if (!recognizer) { alert('Speech recognition not supported. Use Chrome or type manually.'); return; }
-    currentField = fieldId;
-    recognizer.start();
-  }
-  function stopDict() {
-    if (recognizer) recognizer.stop();
-    currentField = null;
-  }
+  <label>Chief complaint (in patient's words)</label>
+  <input id="cc" placeholder="e.g., 'I have burning when I urinate'">
 
-  // System prompt for specialist-level H&P
-  const SYSTEM_PROMPT = `
+  <label>HPI bullets / short notes (onset, timeline, severity, associated symptoms)</label>
+  <textarea id="hpi" rows="4" placeholder="e.g., 4 days of dysuria, frequency, no fever, worse at night"></textarea>
+
+  <div class="two">
+    <div style="flex:1">
+      <label>Past Medical History (dictate or type)</label>
+      <textarea id="pmh" rows="3" placeholder="e.g., HTN, HLD, T2DM"></textarea>
+      <div class="row">
+        <button class="smallbtn" onclick="startDict('pmh')">🎤 Dictate PMH</button>
+        <button class="smallbtn" onclick="stopDict()">⏹ Stop</button>
+        <small style="align-self:center">Uses browser speech recognition (Chrome recommended).</small>
+      </div>
+    </div>
+
+    <div style="flex:1">
+      <label>Medications (dictate or type, one per line, include dose/frequency)</label>
+      <textarea id="meds" rows="3" placeholder="e.g., Lisinopril 10 mg daily — Hypertension"></textarea>
+      <div class="row">
+        <button class="smallbtn" onclick="startDict('meds')">🎤 Dictate meds</button>
+        <button class="smallbtn" onclick="stopDict()">⏹ Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <label>Allergies</label>
+  <input id="allergies" placeholder="e.g., Penicillin">
+
+  <label>Vitals (brief)</label>
+  <input id="vitals" placeholder="e.g., BP 142/88, HR 82, Temp 98.6, BMI 34">
+
+  <label>Focused Exam / abnormal findings (brief)</label>
+  <textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
+
+  <label>Options</label>
+  <div class="row">
+    <select id="detail">
+      <option value="concise">Concise, no bloat (default)</option>
+      <option value="detailed">More detailed (include more exam and counseling)</option>
+    </select>
+    <label style="margin:0; align-self:center;"><input id="icd" type="checkbox" checked> Include ICD-10 + one-line justification</label>
+    <label style="margin:0; align-self:center;"><input id="patientFriendly" type="checkbox" checked> Patient-friendly language</label>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button onclick="buildPrompt()">Build Prompt</button>
+    <button onclick="copyPrompt()">Copy Prompt</button>
+    <button onclick="openChat()">Open ChatGPT</button>
+    <button onclick="clearAll()">Clear</button>
+  </div>
+
+  <label style="margin-top:12px">Preview: Prompt to paste into ChatGPT</label>
+  <pre id="promptPreview"></pre>
+
+  <div style="margin-top:10px;">
+    <small><strong>Usage:</strong> Click "Build Prompt", then "Copy Prompt", open chat.openai.com, paste and send. Review output & edit before adding to Epic.</small>
+  </div>
+
+  <script>
+    // Speech recognition setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    let recognizer = null;
+    let currentField = null;
+    if (SpeechRecognition) {
+      recognizer = new SpeechRecognition();
+      recognizer.lang = 'en-US';
+      recognizer.interimResults = false;
+      recognizer.maxAlternatives = 1;
+      recognizer.onresult = (evt) => {
+        const t = evt.results[0][0].transcript;
+        if (currentField) {
+          const el = document.getElementById(currentField);
+          el.value = (el.value ? el.value + ' ' : '') + t;
+        }
+      };
+      recognizer.onerror = (e) => { console.log('SpeechError', e); alert('Speech recognition error: ' + (e.error || e.message)); };
+      recognizer.onend = () => { currentField = null; };
+    }
+
+    function startDict(fieldId) {
+      if (!recognizer) { alert('Speech recognition not supported in this browser. Use Chrome or type manually.'); return; }
+      currentField = fieldId;
+      recognizer.start();
+    }
+    function stopDict() {
+      if (recognizer) recognizer.stop();
+      currentField = null;
+    }
+
+    // Specialist-level system prompt
+    const SYSTEM_PROMPT = `
 You are a clinical documentation assistant for a Family Medicine physician. 
 Generate an Epic-ready H&P note with the following headers:
 CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS (include dose/frequency), ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
@@ -45,28 +133,28 @@ Constraints:
 - Output ONLY the H&P and EPIC_PROBLEMS blocks.
 `;
 
-  function buildPrompt() {
-    const cc = document.getElementById('cc').value.trim();
-    const hpi = document.getElementById('hpi').value.trim();
-    const pmh = document.getElementById('pmh').value.trim();
-    const meds = document.getElementById('meds').value.trim();
-    const allergies = document.getElementById('allergies').value.trim();
-    const vitals = document.getElementById('vitals').value.trim() || "Not reported";
-    const exam = document.getElementById('exam').value.trim() || "Not reported";
-    const detail = document.getElementById('detail').value;
-    const includeICD = document.getElementById('icd').checked;
-    const patientFriendly = document.getElementById('patientFriendly').checked;
+    function buildPrompt() {
+      const cc = document.getElementById('cc').value.trim();
+      const hpi = document.getElementById('hpi').value.trim();
+      const pmh = document.getElementById('pmh').value.trim();
+      const meds = document.getElementById('meds').value.trim();
+      const allergies = document.getElementById('allergies').value.trim();
+      const vitals = document.getElementById('vitals').value.trim() || "Not reported";
+      const exam = document.getElementById('exam').value.trim() || "Not reported";
+      const detail = document.getElementById('detail').value;
+      const includeICD = document.getElementById('icd').checked;
+      const patientFriendly = document.getElementById('patientFriendly').checked;
 
-    if (!cc && !hpi && !pmh) {
-      if (!confirm('No CC/HPI/PMH entered. Continue?')) return;
-    }
+      if (!cc && !hpi && !pmh) {
+        if (!confirm('No CC/HPI/PMH entered. Continue?')) return;
+      }
 
-    let optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
+      let optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
 INCLUDE_ICD: ${includeICD ? 'Yes' : 'No'}.
 PATIENT_FRIENDLY_LANGUAGE: ${patientFriendly ? 'Yes' : 'No'}.
 Do not include identifiers.`;
 
-    let userInput =
+      let userInput =
 `PATIENT INPUT:
 CHIEF COMPLAINT: ${cc}
 HPI: ${hpi}
@@ -79,7 +167,7 @@ ${optionsText}
 END PATIENT INPUT.
 `;
 
-    const finalPrompt = SYSTEM_PROMPT + "\n\n" + userInput + `
+      const finalPrompt = SYSTEM_PROMPT + "\n\n" + userInput + `
 OUTPUT FORMAT:
 1) Generate H&P using exact headers.
 2) Include medications linked to respective diagnoses.
@@ -88,22 +176,24 @@ OUTPUT FORMAT:
 5) Output ONLY the H&P and EPIC_PROBLEMS.
 `;
 
-    document.getElementById('promptPreview').textContent = finalPrompt;
-  }
+      document.getElementById('promptPreview').textContent = finalPrompt;
+    }
 
-  function copyPrompt() {
-    const text = document.getElementById('promptPreview').textContent;
-    if (!text) { alert('Build prompt first'); return; }
-    navigator.clipboard.writeText(text).then(() => alert('Prompt copied! Paste into chat.openai.com'));
-  }
+    function copyPrompt() {
+      const text = document.getElementById('promptPreview').textContent;
+      if (!text) { alert('Build prompt first'); return; }
+      navigator.clipboard.writeText(text).then(() => alert('Prompt copied! Paste into chat.openai.com'));
+    }
 
-  function openChat() {
-    window.open('https://chat.openai.com/chat', '_blank');
-  }
+    function openChat() {
+      window.open('https://chat.openai.com/chat', '_blank');
+    }
 
-  function clearAll() {
-    if (!confirm('Clear all fields?')) return;
-    ['cc','hpi','pmh','meds','allergies','vitals','exam'].forEach(id => document.getElementById(id).value='');
-    document.getElementById('promptPreview').textContent = '';
-  }
-</script>
+    function clearAll() {
+      if (!confirm('Clear all fields?')) return;
+      ['cc','hpi','pmh','meds','allergies','vitals','exam'].forEach(id => document.getElementById(id).value='');
+      document.getElementById('promptPreview').textContent = '';
+    }
+  </script>
+</body>
+</html>
