@@ -8,12 +8,13 @@
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin: 14px; max-width:900px;}
     h1 { margin-bottom: 6px; }
     label { display:block; margin-top:10px; font-weight:600; }
-    textarea, input[type=text] { width:100%; padding:8px; font-size:14px; box-sizing:border-box; }
+    textarea, input[type=text], select { width:100%; padding:8px; font-size:14px; box-sizing:border-box; }
     .row { display:flex; gap:8px; margin-top:8px; }
     button { padding:8px 12px; font-size:14px; cursor:pointer; }
     small { color:#555; }
     .hint { background:#f6f6f8; padding:10px; border-left:4px solid #ccc; margin-top:8px; }
     pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:400px; overflow:auto; }
+    .half { width:48%; display:inline-block; vertical-align:top; }
   </style>
 </head>
 <body>
@@ -21,6 +22,22 @@
   <div class="hint">
     <div style="color:crimson; font-weight:600;">Do NOT enter patient identifiers (name, MRN, DOB, address) here.</div>
     This page runs locally in your browser and does not send data anywhere.
+  </div>
+
+  <div class="row">
+    <div class="half">
+      <label>Age</label>
+      <input id="age" placeholder="e.g., 45">
+    </div>
+    <div class="half">
+      <label>Sex</label>
+      <select id="sex">
+        <option value="">Select</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
   </div>
 
   <label>Chief complaint (in patient's words)</label>
@@ -48,7 +65,7 @@
   <textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
 
   <label>Additional Questions / Clarifications</label>
-  <textarea id="additional" rows="3" placeholder="Enter answers to questions GPT asked in the previous note to make H&P more thorough"></textarea>
+  <textarea id="additional" rows="3" placeholder="Enter answers to previous GPT questions for a more thorough H&P"></textarea>
 
   <label>Options</label>
   <div class="row">
@@ -71,11 +88,13 @@
   <pre id="promptPreview"></pre>
 
   <div style="margin-top:10px;">
-    <small><strong>Usage:</strong> 1) Fill fields. 2) Click "Build Prompt". 3) Paste into chat.openai.com. 4) If GPT asks questions, enter answers in "Additional Questions" and click "Build Prompt" again for updated H&P.</small>
+    <small><strong>Usage:</strong> 1) Fill fields. 2) Click "Build Prompt". 3) Paste into chat.openai.com. 4) If GPT asks questions, enter answers in "Additional Questions" and click "Build Prompt" again for updated H&P. The note will include medications linked to diagnosis, lifestyle prescriptions, specialist-level plan, and a list of care gaps based on age/sex.</small>
   </div>
 
   <script>
     function buildPrompt() {
+      const age = document.getElementById('age').value.trim() || "Not reported";
+      const sex = document.getElementById('sex').value || "Not reported";
       const cc = document.getElementById('cc').value.trim();
       const hpi = document.getElementById('hpi').value.trim();
       const pmh = document.getElementById('pmh').value.trim();
@@ -96,6 +115,8 @@ Do not include identifiers.`;
 
       let userInput =
 `PATIENT INPUT:
+AGE: ${age}
+SEX: ${sex}
 CHIEF COMPLAINT: ${cc}
 HPI: ${hpi}
 PAST MEDICAL HISTORY: ${pmh}
@@ -112,17 +133,18 @@ END PATIENT INPUT.
       const systemPrompt = `
 You are a clinical documentation assistant for a Family Medicine physician. 
 Generate an Epic-ready H&P note with the following headers:
-CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS, ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
+CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS (with dose/frequency and linked diagnosis), ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
 
 Constraints:
 - Avoid note bloat; include only relevant ROS and exam findings.
 - Use neutral, patient-friendly language.
 - Include short, evidence-based plan per problem.
-- Map each medication to its corresponding diagnosis.
-- Include **lifestyle medicine / lifestyle prescription** recommendations per problem.
-- Include **Other Questions to Ask the Patient** in the plan to ensure nothing is missed.
-- High-level specialist-style assessment & plan: write directives (do this, this, follow up), do NOT use “consider starting…”.
-- Use any information in "Additional Questions / Clarifications" to update the note thoroughly.
+- Include lifestyle medicine/lifestyle prescription recommendations for each problem.
+- Map medications to their respective diagnoses.
+- Include a list of primary care preventive and chronic care care gaps based on age and sex.
+- Include other questions to ask the patient under the plan.
+- High-level specialist-style assessment & plan (directive style, no "consider starting").
+- Incorporate information in "Additional Questions" to update the note thoroughly.
 - Provide EPIC_PROBLEMS if requested: "Diagnosis — ICD-10 — one-line justification".
 - Output ONLY the H&P and EPIC_PROBLEMS blocks.
 `;
@@ -132,10 +154,11 @@ OUTPUT FORMAT:
 1) Generate H&P using exact headers.
 2) Include medications linked to respective diagnoses.
 3) Include lifestyle medicine prescriptions for each problem.
-4) Include list of other questions to ask the patient under the plan.
-5) Provide high-level specialist-style assessment & plan.
-6) Include EPIC_PROBLEMS if requested.
-7) Output ONLY the H&P and EPIC_PROBLEMS.
+4) Include list of care gaps based on age and sex.
+5) Include list of other questions to ask the patient under the plan.
+6) Provide high-level specialist-style assessment & plan.
+7) Include EPIC_PROBLEMS if requested.
+8) Output ONLY the H&P and EPIC_PROBLEMS.
 `;
     }
 
@@ -151,7 +174,7 @@ OUTPUT FORMAT:
 
     function clearAll() {
       if (!confirm('Clear all fields?')) return;
-      ['cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional'].forEach(id => document.getElementById(id).value='');
+      ['age','sex','cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional'].forEach(id => document.getElementById(id).value='');
       document.getElementById('promptPreview').textContent = '';
     }
   </script>
