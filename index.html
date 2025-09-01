@@ -12,7 +12,7 @@ input, textarea, select { width:100%; padding:8px; font-size:14px; box-sizing:bo
 .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
 .half { flex:1 1 48%; }
 button { padding:8px 12px; font-size:14px; cursor:pointer; margin-top:10px; }
-pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:400px; overflow:auto; margin-top:8px; }
+pre { white-space:pre-wrap; background:#f2f2f4; padding:10px; max-height:600px; overflow:auto; margin-top:8px; border:1px solid #ddd; }
 .hint { background:#f6f6f8; padding:10px; border-left:4px solid #ccc; margin-top:8px; }
 small { color:#555; display:block; margin-top:6px; }
 </style>
@@ -40,104 +40,134 @@ small { color:#555; display:block; margin-top:6px; }
   </div>
 </div>
 
-<button onclick="fillSuggestions()">Fill Suggestions for PMH, Meds & Preventive Care</button>
-
 <label>Chief Complaint</label>
 <input id="cc" placeholder="Patient's own words">
 
-<label>HPI (bullets, onset/duration/severity/associated symptoms)</label>
-<textarea id="hpi" rows="4" placeholder="e.g., 4 days of dysuria, frequency, no fever"></textarea>
+<label>HPI</label>
+<textarea id="hpi" rows="4"></textarea>
 
 <label>Past Medical History</label>
-<textarea id="pmh" rows="3" placeholder="Auto-suggested based on age/sex"></textarea>
+<textarea id="pmh" rows="2" placeholder="One per line, e.g. Hypertension, Diabetes"></textarea>
 
 <label>Past Surgical History</label>
-<textarea id="psh" rows="2" placeholder="e.g., appendectomy 2010"></textarea>
+<textarea id="psh" rows="2"></textarea>
 
-<label>Medications (one per line, include dose/frequency and linked diagnosis)</label>
-<textarea id="meds" rows="3" placeholder="Auto-suggested based on PMH"></textarea>
+<label>Medications</label>
+<textarea id="meds" rows="3" placeholder="dose/frequency and link to diagnosis"></textarea>
 
 <label>Allergies</label>
-<input id="allergies" placeholder="e.g., Penicillin">
+<input id="allergies">
 
-<label>Vitals (brief)</label>
-<input id="vitals" placeholder="e.g., BP 142/88, HR 82, Temp 98.6, BMI 34">
+<label>Vitals</label>
+<input id="vitals" placeholder="BP, HR, Temp, BMI">
 
-<label>Focused Exam / Abnormal Findings</label>
-<textarea id="exam" rows="2" placeholder="e.g., suprapubic tenderness, no CVA tenderness"></textarea>
+<label>Focused Exam</label>
+<textarea id="exam" rows="2"></textarea>
 
-<label>Additional Questions / Clarifications</label>
-<textarea id="additional" rows="3" placeholder="Enter answers to previous GPT questions"></textarea>
+<label>Additional Clarifications</label>
+<textarea id="additional" rows="3"></textarea>
 
-<label>Options</label>
 <div class="row">
-  <select id="detail" class="half">
-    <option value="concise">Concise</option>
-    <option value="detailed">Detailed</option>
-  </select>
+  <div class="half">
+    <label>Note Output</label>
+    <select id="noteType">
+      <option value="full">Full H&P</option>
+      <option value="sap">Subjective + Assessment/Plan only</option>
+    </select>
+  </div>
   <div class="half">
     <label><input type="checkbox" id="icd" checked> Include ICD-10</label>
-    <label><input type="checkbox" id="patientFriendly" checked> Patient-friendly language</label>
   </div>
 </div>
 
 <div>
   <button onclick="buildPrompt()">Build Prompt</button>
   <button onclick="copyPrompt()">Copy Prompt</button>
-  <button onclick="openChat()">Open ChatGPT</button>
   <button onclick="clearAll()">Clear</button>
 </div>
 
 <label>Preview: Prompt to paste into ChatGPT</label>
 <pre id="promptPreview"></pre>
 
-<small>Fill fields → Build Prompt → Copy → Paste into ChatGPT. Use Additional Questions to update H&P.</small>
-
 <script>
 const getField = id => document.getElementById(id).value.trim() || "Not reported";
 
-// Auto-fill PMH, medications, and preventive care
-function fillSuggestions() {
-  const age = parseInt(document.getElementById('age').value);
-  const sex = document.getElementById('sex').value;
+// Preventive care auto-fill
+function getPreventive(age, sex) {
+  let care = [];
+  if (age >= 45) care.push("Colon cancer screening (colonoscopy or stool test)");
+  if (sex === "Female" && age >= 40) care.push("Mammogram for breast cancer screening");
+  if (sex === "Female" && age >= 65) care.push("Bone density scan for osteoporosis");
+  if (sex === "Male" && age >= 65) care.push("AAA ultrasound if ever smoked");
+  if (age >= 50) care.push("Vaccines: flu shot yearly, shingles vaccine, pneumonia vaccine, COVID-19 boosters, Tdap if due");
+  return care.join("; ");
+}
 
-  if (!age || !sex) { alert('Enter age and sex first'); return; }
+// Education pearls based on PMH
+function getEducationPearls(pmh) {
+  const pearls = [];
+  const dx = pmh.toLowerCase();
+  pearls.push("Use the latest guidelines for diagnosis and treatment and mention it for each.");
 
-  // PMH suggestions
-  let pmhSuggestions = [];
-  if (age >= 50) pmhSuggestions.push("Hypertension", "Hyperlipidemia", "Type 2 Diabetes Mellitus");
-  if (age >= 60) pmhSuggestions.push("Osteoarthritis");
-  document.getElementById('pmh').value = pmhSuggestions.join(', ');
+  if (dx.includes("hypertension")) pearls.push("HTN (AHA/ACC 2023): goal BP <130/80 with lifestyle changes and meds as needed.");
+  if (dx.includes("diabetes")) pearls.push("Diabetes (ADA 2024): A1c goal <7%, metformin first line, add SGLT2/GLP1 if high CV risk.");
+  if (dx.includes("hyperlip")) pearls.push("High cholesterol (ACC/AHA 2023): statin if ASCVD risk >7.5%, LDL goal <70 if ASCVD.");
+  if (dx.includes("cad")) pearls.push("Heart disease (AHA 2023): daily aspirin if ASCVD, statin, beta blocker, ACE/ARB.");
+  if (dx.includes("ckd")) pearls.push("CKD (KDIGO 2023): control BP, use ACE/ARB, avoid NSAIDs, check labs often.");
+  if (dx.includes("copd")) pearls.push("COPD (GOLD 2024): quit smoking, inhalers stepwise, vaccines, pulm rehab.");
+  if (dx.includes("asthma")) pearls.push("Asthma (GINA 2024): inhaled steroids preferred, avoid triggers.");
+  if (dx.includes("depression")) pearls.push("Depression (APA 2023): CBT + SSRI/SNRI first line, monitor suicide risk.");
+  if (dx.includes("osteoporosis")) pearls.push("Osteoporosis (USPSTF 2023): calcium/vit D, weight-bearing exercise, bisphosphonates if needed.");
 
-  // Medications suggestions
-  let medSuggestions = [];
-  if (pmhSuggestions.includes("Hypertension")) medSuggestions.push("Lisinopril 10-40 mg daily — Hypertension");
-  if (pmhSuggestions.includes("Type 2 Diabetes Mellitus")) medSuggestions.push("Metformin 500-1000 mg BID — Type 2 Diabetes Mellitus");
-  if (pmhSuggestions.includes("Hyperlipidemia")) medSuggestions.push("Statin (Simvastatin 20 mg nightly) — Hyperlipidemia");
-  if (pmhSuggestions.includes("Osteoarthritis")) medSuggestions.push("Acetaminophen 500-1000 mg q6-8h PRN — Osteoarthritis");
-  document.getElementById('meds').value = medSuggestions.join('\n');
-
-  // Preventive care preview
-  let preventive = [];
-  if (sex === "Female" && age >= 40) preventive.push("Mammogram every 1–2 years");
-  if (age >= 45) preventive.push("Colonoscopy every 10 years");
-  if (age >= 65 && sex === "Female") preventive.push("Bone density scan for osteoporosis");
-  if (age >= 50) preventive.push("Vaccinations: Influenza, Tdap, COVID-19, Pneumococcal as indicated");
-  
-  alert("Suggested preventive care:\n" + preventive.join('\n'));
+  return pearls.join("\n- ");
 }
 
 function buildPrompt() {
   const inputs = ['age','sex','cc','hpi','pmh','psh','meds','allergies','vitals','exam','additional']
     .reduce((acc, id) => { acc[id] = getField(id); return acc; }, {});
-  const detail = document.getElementById('detail').value;
   const icd = document.getElementById('icd').checked ? 'Yes' : 'No';
-  const patientFriendly = document.getElementById('patientFriendly').checked ? 'Yes' : 'No';
+  const noteType = document.getElementById('noteType').value;
+  const preventive = getPreventive(parseInt(inputs.age), inputs.sex);
+  const education = getEducationPearls(inputs.pmh);
 
-  const optionsText = `NOTE_LENGTH: ${detail === 'detailed' ? 'Detailed' : 'Concise'}.
-INCLUDE_ICD: ${icd}.
-PATIENT_FRIENDLY_LANGUAGE: ${patientFriendly}.
-Do not include identifiers.`;
+  let sectionRequest = "";
+  if (noteType === "sap") {
+    sectionRequest = `
+Generate ONLY these sections in very simple English:
+
+SUBJECTIVE:
+- Combine chief complaint, HPI, PMH, PSH, Meds, Allergies, and ROS.
+
+ASSESSMENT:
+- Problem-oriented list with ICD-10 codes if relevant.
+- Use clear, simple wording.
+
+PLAN:
+- Short, direct plan for each problem.
+- Add lifestyle tips (diet, exercise, sleep, stress).
+- Include preventive care gaps: ${preventive}.
+
+EDUCATION:
+- ${education}
+`;
+  } else {
+    sectionRequest = `
+Generate a full Epic-ready H&P in simple English. 
+Include SUBJECTIVE, OBJECTIVE, ASSESSMENT, PLAN, and EDUCATION.
+Preventive care gaps: ${preventive}.
+EDUCATION section should include:
+- ${education}
+`;
+  }
+
+  const systemPrompt = `
+You are a clinical documentation assistant for a Family Medicine physician. 
+${sectionRequest}
+
+Constraints:
+- Always use clear, simple English (avoid jargon).
+- No extra text outside requested sections.
+`;
 
   const userInput = `
 PATIENT INPUT:
@@ -145,32 +175,15 @@ AGE: ${inputs.age}
 SEX: ${inputs.sex}
 CHIEF COMPLAINT: ${inputs.cc}
 HPI: ${inputs.hpi}
-PAST MEDICAL HISTORY: ${inputs.pmh}
-PAST SURGICAL HISTORY: ${inputs.psh}
+PMH: ${inputs.pmh}
+PSH: ${inputs.psh}
 MEDICATIONS: ${inputs.meds}
 ALLERGIES: ${inputs.allergies}
 VITALS: ${inputs.vitals}
 EXAM: ${inputs.exam}
 ADDITIONAL: ${inputs.additional}
-${optionsText}
+INCLUDE_ICD: ${icd}
 END PATIENT INPUT.
-`;
-
-  const systemPrompt = `
-You are a clinical documentation assistant for a Family Medicine physician. 
-Generate an Epic-ready H&P with headers: CHIEF COMPLAINT, HISTORY OF PRESENT ILLNESS, PAST MEDICAL HISTORY, PAST SURGICAL HISTORY, MEDICATIONS (linked to diagnosis), ALLERGIES, FAMILY HISTORY, SOCIAL HISTORY, REVIEW OF SYSTEMS, VITALS, PHYSICAL EXAM, ASSESSMENT & PLAN.
-
-Constraints:
-- Avoid note bloat; include only relevant ROS/exam findings.
-- Use neutral, patient-friendly language.
-- Include short evidence-based plan per problem.
-- Include lifestyle recommendations.
-- Map medications to diagnoses.
-- Include primary care preventive and chronic care gaps based on age/sex.
-- Include questions to ask patient.
-- High-level specialist-style directive plan.
-- Include EPIC_PROBLEMS if requested.
-- Output ONLY H&P and EPIC_PROBLEMS.
 `;
 
   document.getElementById('promptPreview').textContent = systemPrompt + "\n\n" + userInput;
@@ -179,10 +192,8 @@ Constraints:
 function copyPrompt() {
   const text = document.getElementById('promptPreview').textContent;
   if (!text) { alert('Build prompt first'); return; }
-  navigator.clipboard.writeText(text).then(() => alert('Prompt copied!'));
+  navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
 }
-
-function openChat() { window.open('https://chat.openai.com/chat', '_blank'); }
 
 function clearAll() {
   if (!confirm('Clear all fields?')) return;
